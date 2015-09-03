@@ -85,8 +85,11 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
 
     @Override
     public void onRefresh() {
+        onRefresh(System.currentTimeMillis());
+    }
+
+    protected void onRefresh(long now) {
         if (!pendingRequest) {
-            long now = System.currentTimeMillis();
             if (deviceContext != null && pwsId != null && pwsPassword != null) {
                 try {
                     StringBuilder url = new StringBuilder("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=")
@@ -95,27 +98,27 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
                     boolean hasVariables = false;
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG), url, now);
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG), url, now) ? true : hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.DEW_PT_F)) {
-                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.DEW_PT_F), url, now);
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.DEW_PT_F), url, now) ? true : hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)) {
-                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F), url, now);
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F), url, now) ? true : hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY)) {
-                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY), url, now);
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY), url, now) ? true : hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES)) {
-                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES), url, now);
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES), url, now) ? true : hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH)) {
-                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH), url, now);
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH), url, now) ? true : hasVariables;
                     }
 
                     if (hasVariables) {
