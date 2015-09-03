@@ -1,3 +1,10 @@
+/*******************************************************************************
+ * Copyright (c) 2015 Whizzo Software, LLC.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/legal/epl-v10.html
+ *******************************************************************************/
 package com.whizzosoftware.hobson.wunderground;
 
 import com.whizzosoftware.hobson.api.device.DeviceContext;
@@ -14,19 +21,33 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin {
+/**
+ * A plugin that will send the weather-related variables of a particular device to Weather Underground as PWS data.
+ *
+ * @author Dan Noguerol
+ */
+public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implements HttpChannel {
     private static final Logger logger = LoggerFactory.getLogger(WeatherUndergroundPlugin.class);
 
     private DeviceContext deviceContext;
     private String pwsId;
     private String pwsPassword;
-    private boolean hasPendingRequest;
+    private HttpChannel httpChannel;
+    private Map<String,Long> lastVariableUpdate = new HashMap<>();
+    private boolean pendingRequest;
 
     public WeatherUndergroundPlugin(String pluginId) {
         super(pluginId);
+        this.httpChannel = this;
+    }
+
+    public WeatherUndergroundPlugin(String pluginId, HttpChannel httpChannel) {
+        super(pluginId);
+        this.httpChannel = httpChannel;
     }
 
     @Override
@@ -64,73 +85,62 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin {
 
     @Override
     public void onRefresh() {
-        if (deviceContext != null && pwsId != null && pwsPassword != null) {
-            try {
-                StringBuilder url = new StringBuilder("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=")
-                        .append(pwsId).append("&PASSWORD=").append(URLEncoder.encode(pwsPassword, "UTF8")).append("&dateutc=now");
+        if (!pendingRequest) {
+            long now = System.currentTimeMillis();
+            if (deviceContext != null && pwsId != null && pwsPassword != null) {
+                try {
+                    StringBuilder url = new StringBuilder("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=")
+                            .append(pwsId).append("&PASSWORD=").append(URLEncoder.encode(pwsPassword, "UTF8")).append("&dateutc=now");
 
-                boolean hasVariables = false;
+                    boolean hasVariables = false;
 
-                if (hasDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG)) {
-                    HobsonVariable v = getDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG);
-                    url.append("&baromin=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
-                    hasVariables = true;
-                }
+                    if (hasDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG)) {
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG), url, now);
+                    }
 
-                if (hasDeviceVariable(deviceContext, VariableConstants.DEW_PT_F)) {
-                    HobsonVariable v = getDeviceVariable(deviceContext, VariableConstants.DEW_PT_F);
-                    url.append("&dewptf=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
-                    hasVariables = true;
-                }
+                    if (hasDeviceVariable(deviceContext, VariableConstants.DEW_PT_F)) {
+                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.DEW_PT_F), url, now);
+                    }
 
-                if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)) {
-                    HobsonVariable v = getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F);
-                    url.append("&tempf=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
-                    hasVariables = true;
-                }
+                    if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)) {
+                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F), url, now);
+                    }
 
-                if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY)) {
-                    HobsonVariable v = getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY);
-                    url.append("&humidity=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
-                    hasVariables = true;
-                }
+                    if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY)) {
+                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY), url, now);
+                    }
 
-                if (hasDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES)) {
-                    HobsonVariable v = getDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES);
-                    url.append("&winddir=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
-                    hasVariables = true;
-                }
+                    if (hasDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES)) {
+                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES), url, now);
+                    }
 
-                if (hasDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH)) {
-                    HobsonVariable v = getDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH);
-                    url.append("&windspeedmph=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
-                    hasVariables = true;
-                }
+                    if (hasDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH)) {
+                        hasVariables = hasVariables || appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH), url, now);
+                    }
 
-                if (hasVariables) {
-                    if (!hasPendingRequest) {
+                    if (hasVariables) {
                         logger.debug("Calling update URL: {}", url.toString());
                         try {
-                            sendHttpGetRequest(new URI(url.toString()), null, null);
-                            hasPendingRequest = true;
+                            httpChannel.sendHttpGetRequest(new URI(url.toString()), null, null);
+                            pendingRequest = true;
                         } catch (URISyntaxException e) {
                             logger.error("Error creating update URL", e);
                         }
                     } else {
-                        logger.debug("A previous request is pending; bypassing update");
+                        logger.debug("No variables available; bypassing update");
                     }
-                } else {
-                    logger.debug("No variables available; bypassing update");
+                } catch (UnsupportedEncodingException uee) {
+                    logger.error("Unable to create wunderground URL", uee);
                 }
-            } catch (UnsupportedEncodingException uee) {
-                logger.error("Unable to create wunderground URL", uee);
             }
+        } else {
+            logger.debug("A previous request is pending; bypassing update");
         }
     }
 
     @Override
     protected void onHttpResponse(int statusCode, List<Map.Entry<String, String>> headers, String response, Object context) {
-        hasPendingRequest = false;
+        clearPendingRequest();
         if (statusCode == 200 && response != null && response.startsWith("success")) {
             logger.debug("Update successful");
         } else {
@@ -140,14 +150,30 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin {
 
     @Override
     protected void onHttpRequestFailure(Throwable cause, Object context) {
-        hasPendingRequest = false;
+        clearPendingRequest();
         logger.error("Error calling update URL", cause);
+    }
+
+    protected void setPwsId(String pwsId) {
+        this.pwsId = pwsId;
+    }
+
+    protected void setPwsPassword(String pwsPassword) {
+        this.pwsPassword = pwsPassword;
+    }
+
+    protected DeviceContext getDeviceContext() {
+        return deviceContext;
+    }
+
+    protected void setDeviceContext(DeviceContext deviceContext) {
+        this.deviceContext = deviceContext;
     }
 
     protected void processConfig(PropertyContainer config) {
         String device = (String)config.getPropertyValue("device");
         if (device != null) {
-            deviceContext = DeviceContext.create(device);
+            setDeviceContext(DeviceContext.create(device));
         }
         pwsId = (String)config.getPropertyValue("pwsId");
         pwsPassword = (String)config.getPropertyValue("pwsPassword");
@@ -157,5 +183,47 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin {
         } else {
             setStatus(PluginStatus.notConfigured(""));
         }
+    }
+
+    protected boolean appendVariableToURL(HobsonVariable v, StringBuilder url, long now) throws UnsupportedEncodingException {
+        if (!lastVariableUpdate.containsKey(v.getName()) || now > lastVariableUpdate.get(v.getName())) {
+            url.append("&").append(getQueryParameterForVariable(v.getName())).append("=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
+            setLastVariableUpdate(v.getName(), v.getLastUpdate());
+            return true;
+        } else {
+            logger.error("Detected stale variable: {}", v.getName());
+        }
+        return false;
+    }
+
+    protected String getQueryParameterForVariable(String varName) {
+        switch (varName) {
+            case VariableConstants.BAROMETRIC_PRESSURE_INHG:
+                return "baromin";
+            case VariableConstants.DEW_PT_F:
+                return "dewptf";
+            case VariableConstants.OUTDOOR_TEMP_F:
+                return "tempf";
+            case VariableConstants.OUTDOOR_RELATIVE_HUMIDITY:
+                return "humidity";
+            case VariableConstants.WIND_DIRECTION_DEGREES:
+                return "winddir";
+            case VariableConstants.WIND_SPEED_MPH:
+                return "windspeedmph";
+            default:
+                return null;
+        }
+    }
+
+    protected void setLastVariableUpdate(String varName, long time) {
+        lastVariableUpdate.put(varName, time);
+    }
+
+    protected boolean hasPendingRequest() {
+        return pendingRequest;
+    }
+
+    protected void clearPendingRequest() {
+        pendingRequest = false;
     }
 }
