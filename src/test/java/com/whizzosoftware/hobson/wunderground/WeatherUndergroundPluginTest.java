@@ -82,4 +82,31 @@ public class WeatherUndergroundPluginTest {
         assertEquals(1, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&baromin=5&tempf=74.5", channel.getURI(0).toASCIIString());
     }
+
+    @Test
+    public void testFullVariableUpdate() {
+        long now = System.currentTimeMillis();
+
+        DeviceContext deviceContext = DeviceContext.createLocal("plugin1", "device1");
+        MockHttpChannel channel = new MockHttpChannel();
+        MockVariableManager variableManager = new MockVariableManager();
+
+        WeatherUndergroundPlugin plugin = new WeatherUndergroundPlugin("plugin2", channel);
+        plugin.setVariableManager(variableManager);
+        plugin.setDeviceContext(deviceContext);
+        plugin.setPwsId("foo");
+        plugin.setPwsPassword("bar");
+
+        variableManager.publishDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG, 5, HobsonVariable.Mask.READ_ONLY);
+        variableManager.publishDeviceVariable(deviceContext, VariableConstants.DEW_PT_F, 6, HobsonVariable.Mask.READ_ONLY);
+        variableManager.publishDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F, 7, HobsonVariable.Mask.READ_ONLY);
+        variableManager.publishDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY, 8, HobsonVariable.Mask.READ_ONLY);
+        variableManager.publishDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES, 9, HobsonVariable.Mask.READ_ONLY);
+        variableManager.publishDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH, 10, HobsonVariable.Mask.READ_ONLY);
+
+        plugin.onRefresh(now);
+        assertTrue(plugin.hasPendingRequest());
+        assertEquals(1, channel.getURICount());
+        assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&baromin=5&dewptf=6&tempf=7&humidity=8&winddir=9&windspeedmph=10", channel.getURI(0).toASCIIString());
+    }
 }
