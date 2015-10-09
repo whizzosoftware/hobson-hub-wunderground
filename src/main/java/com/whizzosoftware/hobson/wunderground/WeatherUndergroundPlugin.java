@@ -174,14 +174,11 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
     }
 
     protected void processConfig(PropertyContainer config) {
-        String device = (String)config.getPropertyValue("device");
-        if (device != null) {
-            setDeviceContext(DeviceContext.create(device));
-        }
+        setDeviceContext((DeviceContext)config.getPropertyValue("device"));
         pwsId = (String)config.getPropertyValue("pwsId");
         pwsPassword = (String)config.getPropertyValue("pwsPassword");
 
-        if (deviceContext != null && pwsId != null && pwsPassword != null) {
+        if (deviceContext != null && pwsId != null && pwsId.trim().length() > 0 && pwsPassword != null && pwsPassword.trim().length() > 0) {
             setStatus(PluginStatus.running());
         } else {
             setStatus(PluginStatus.notConfigured(""));
