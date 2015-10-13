@@ -8,10 +8,13 @@
 package com.whizzosoftware.hobson.wunderground;
 
 import com.whizzosoftware.hobson.api.device.DeviceContext;
+import com.whizzosoftware.hobson.api.device.DeviceType;
 import com.whizzosoftware.hobson.api.plugin.PluginStatus;
 import com.whizzosoftware.hobson.api.plugin.http.AbstractHttpClientPlugin;
+import com.whizzosoftware.hobson.api.property.PropertyConstraintType;
 import com.whizzosoftware.hobson.api.property.PropertyContainer;
 import com.whizzosoftware.hobson.api.property.TypedProperty;
+import com.whizzosoftware.hobson.api.property.TypedPropertyConstraint;
 import com.whizzosoftware.hobson.api.variable.HobsonVariable;
 import com.whizzosoftware.hobson.api.variable.VariableConstants;
 import org.slf4j.Logger;
@@ -21,6 +24,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,9 +57,9 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
     @Override
     protected TypedProperty[] createSupportedProperties() {
         return new TypedProperty[] {
-            new TypedProperty("device", "Device", "The device reporting the weather data", TypedProperty.Type.DEVICE),
-            new TypedProperty("pwsId", "PWS ID", "The Personal Weather Station ID", TypedProperty.Type.STRING),
-            new TypedProperty("pwsPassword", "Password", "The Personal Weather Station password", TypedProperty.Type.SECURE_STRING)
+            new TypedProperty.Builder("device", "Device", "The device reporting the weather data", TypedProperty.Type.DEVICE).constraint(PropertyConstraintType.required, true).constraint(PropertyConstraintType.deviceType, DeviceType.WEATHER_STATION.toString()).build(),
+            new TypedProperty.Builder("pwsId", "PWS ID", "The Personal Weather Station ID", TypedProperty.Type.STRING).constraint(PropertyConstraintType.required, true).build(),
+            new TypedProperty.Builder("pwsPassword", "Password", "The Personal Weather Station password", TypedProperty.Type.SECURE_STRING).constraint(PropertyConstraintType.required, true).build()
         };
     }
 
