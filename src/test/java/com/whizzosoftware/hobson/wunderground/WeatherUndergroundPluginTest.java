@@ -109,4 +109,25 @@ public class WeatherUndergroundPluginTest {
         assertEquals(1, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&baromin=5&dewptf=6&tempf=7&humidity=8&winddir=9&windspeedmph=10", channel.getURI(0).toASCIIString());
     }
+
+    @Test
+    public void testAppendVariableToURL() throws Exception {
+        WeatherUndergroundPlugin plugin = new WeatherUndergroundPlugin("plugin");
+        MockHobsonVariable v = new MockHobsonVariable("plugin", VariableConstants.OUTDOOR_TEMP_F, null, HobsonVariable.Mask.READ_ONLY);
+        StringBuilder url = new StringBuilder();
+
+        assertNotNull(v.getLastUpdate());
+
+        // test null value
+        assertFalse(plugin.appendVariableToURL(v, url, v.getLastUpdate() + 1));
+
+        // test valid value
+        v.setValue("32");
+        assertTrue(plugin.appendVariableToURL(v, url, v.getLastUpdate() + 2));
+        assertEquals("&tempf=32", url.toString());
+
+        // test invalid variable name
+        v = new MockHobsonVariable("plugin", "foo", 32, HobsonVariable.Mask.READ_ONLY);
+        assertFalse(plugin.appendVariableToURL(v, url, v.getLastUpdate() + 3));
+    }
 }

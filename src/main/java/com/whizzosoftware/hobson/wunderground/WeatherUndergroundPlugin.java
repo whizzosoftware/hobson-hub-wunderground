@@ -14,7 +14,6 @@ import com.whizzosoftware.hobson.api.plugin.http.AbstractHttpClientPlugin;
 import com.whizzosoftware.hobson.api.property.PropertyConstraintType;
 import com.whizzosoftware.hobson.api.property.PropertyContainer;
 import com.whizzosoftware.hobson.api.property.TypedProperty;
-import com.whizzosoftware.hobson.api.property.TypedPropertyConstraint;
 import com.whizzosoftware.hobson.api.variable.HobsonVariable;
 import com.whizzosoftware.hobson.api.variable.VariableConstants;
 import org.slf4j.Logger;
@@ -24,7 +23,6 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -102,27 +100,27 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
                     boolean hasVariables = false;
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG), url, now) ? true : hasVariables;
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG), url, now);
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.DEW_PT_F)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.DEW_PT_F), url, now) ? true : hasVariables;
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.DEW_PT_F), url, now) || hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F), url, now) ? true : hasVariables;
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F), url, now) || hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY), url, now) ? true : hasVariables;
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY), url, now) || hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES), url, now) ? true : hasVariables;
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES), url, now) || hasVariables;
                     }
 
                     if (hasDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH), url, now) ? true : hasVariables;
+                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH), url, now) || hasVariables;
                     }
 
                     if (hasVariables) {
@@ -190,12 +188,17 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
     }
 
     protected boolean appendVariableToURL(HobsonVariable v, StringBuilder url, long now) throws UnsupportedEncodingException {
-        if (!lastVariableUpdate.containsKey(v.getName()) || now > lastVariableUpdate.get(v.getName())) {
-            url.append("&").append(getQueryParameterForVariable(v.getName())).append("=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
-            setLastVariableUpdate(v.getName(), v.getLastUpdate());
-            return true;
-        } else {
-            logger.error("Detected stale variable: {}", v.getName());
+        if (v != null && v.getName() != null && v.getValue() != null) {
+            if ((!lastVariableUpdate.containsKey(v.getName()) || now > lastVariableUpdate.get(v.getName()))) {
+                String queryParam = getQueryParameterForVariable(v.getName());
+                if (queryParam != null) {
+                    url.append("&").append(queryParam).append("=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
+                    setLastVariableUpdate(v.getName(), v.getLastUpdate());
+                    return true;
+                }
+            } else {
+                logger.error("Detected stale variable: {}", v.getName());
+            }
         }
         return false;
     }
