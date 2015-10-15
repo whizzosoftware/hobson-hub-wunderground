@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.whizzosoftware.hobson.hub</groupId>
     <artifactId>hobson-hub-wunderground</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>bundle</packaging>
     <name>Weather Underground</name>
     <description>Publishes weather station data to Weather Underground.</description>
@@ -155,7 +155,7 @@
     <scm>
         <connection>scm:git:ssh://git@github.com/whizzosoftware/hobson-hub-wunderground.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/whizzosoftware/hobson-hub-wunderground.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>hobson-hub-wunderground-0.1.0</tag>
     </scm>
     <repositories>
         <repository>
