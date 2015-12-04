@@ -8,10 +8,7 @@
 package com.whizzosoftware.hobson.wunderground;
 
 import com.whizzosoftware.hobson.api.device.DeviceContext;
-import com.whizzosoftware.hobson.api.variable.HobsonVariable;
-import com.whizzosoftware.hobson.api.variable.MockHobsonVariable;
-import com.whizzosoftware.hobson.api.variable.MockVariableManager;
-import com.whizzosoftware.hobson.api.variable.VariableConstants;
+import com.whizzosoftware.hobson.api.variable.*;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -59,14 +56,14 @@ public class WeatherUndergroundPluginTest {
         assertEquals(0, channel.getURICount());
 
         // update the variable but nothing should be sent because of previous pending request
-        ((MockHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(73.5);
+        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(73.5);
         plugin.onRefresh(now + 500);
         assertEquals(0, channel.getURICount());
 
         // clear pending request and update variable again
         plugin.clearPendingRequest();
         assertFalse(plugin.hasPendingRequest());
-        ((MockHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(74.5);
+        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(74.5);
         plugin.onRefresh(now + 600);
         assertEquals(1, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&tempf=74.5", channel.getURI(0).toASCIIString());
@@ -77,7 +74,7 @@ public class WeatherUndergroundPluginTest {
         assertFalse(plugin.hasPendingRequest());
         channel.clear();
         assertEquals(0, channel.getURICount());
-        ((MockHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(74.5);
+        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(74.5);
         plugin.onRefresh(now + 700);
         assertEquals(1, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&baromin=5&tempf=74.5", channel.getURI(0).toASCIIString());
@@ -105,6 +102,7 @@ public class WeatherUndergroundPluginTest {
         variableManager.publishDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH, 10, HobsonVariable.Mask.READ_ONLY);
 
         plugin.onRefresh(now);
+
         assertTrue(plugin.hasPendingRequest());
         assertEquals(1, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&baromin=5&dewptf=6&tempf=7&humidity=8&winddir=9&windspeedmph=10", channel.getURI(0).toASCIIString());
@@ -113,21 +111,23 @@ public class WeatherUndergroundPluginTest {
     @Test
     public void testAppendVariableToURL() throws Exception {
         WeatherUndergroundPlugin plugin = new WeatherUndergroundPlugin("plugin");
-        MockHobsonVariable v = new MockHobsonVariable("plugin", VariableConstants.OUTDOOR_TEMP_F, null, HobsonVariable.Mask.READ_ONLY);
+        MutableHobsonVariable v = new MutableHobsonVariable(DeviceContext.createLocal("plugin", "device1"), VariableConstants.OUTDOOR_TEMP_F, HobsonVariable.Mask.READ_ONLY, null, null);
         StringBuilder url = new StringBuilder();
 
-        assertNotNull(v.getLastUpdate());
+        assertNull(v.getLastUpdate());
+
+        long now = System.currentTimeMillis();
 
         // test null value
-        assertFalse(plugin.appendVariableToURL(v, url, v.getLastUpdate() + 1));
+        assertFalse(plugin.appendVariableToURL(v, url, now));
 
         // test valid value
         v.setValue("32");
-        assertTrue(plugin.appendVariableToURL(v, url, v.getLastUpdate() + 2));
+        assertTrue(plugin.appendVariableToURL(v, url, now + 2));
         assertEquals("&tempf=32", url.toString());
 
         // test invalid variable name
-        v = new MockHobsonVariable("plugin", "foo", 32, HobsonVariable.Mask.READ_ONLY);
-        assertFalse(plugin.appendVariableToURL(v, url, v.getLastUpdate() + 3));
+        v = new MutableHobsonVariable(DeviceContext.createLocal("plugin", "device1"), "foo", HobsonVariable.Mask.READ_ONLY, 32, null);
+        assertFalse(plugin.appendVariableToURL(v, url, now + 3));
     }
 }
