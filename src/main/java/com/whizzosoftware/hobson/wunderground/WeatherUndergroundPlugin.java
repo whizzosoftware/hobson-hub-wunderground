@@ -222,8 +222,10 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
         }
     }
 
-    protected void setLastVariableUpdate(String varName, long time) {
-        lastVariableUpdate.put(varName, time);
+    protected void setLastVariableUpdate(String varName, Long time) {
+        if (time != null) {
+            lastVariableUpdate.put(varName, time);
+        }
     }
 
     protected boolean hasPendingRequest() {
