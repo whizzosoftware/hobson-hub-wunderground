@@ -155,12 +155,12 @@ public class WeatherUndergroundPluginTest {
         plugin.onHttpResponse(200, null, "success", null);
         assertFalse(plugin.hasPendingRequest());
 
-        plugin.onRefresh(now + 70000);
+        plugin.onRefresh(now + 601000);
         assertEquals(1, channel.getURICount());
 
         ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(dctx, VariableConstants.OUTDOOR_TEMP_F)).setValue(42);
         ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(dctx, VariableConstants.OUTDOOR_TEMP_F)).setLastUpdate(now+70000);
-        plugin.onRefresh(now + 80000);
+        plugin.onRefresh(now + 602000);
         assertEquals(2, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&tempf=42", channel.getURI(1).toASCIIString());
     }

@@ -35,7 +35,7 @@ import java.util.Map;
 public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implements HttpChannel {
     private static final Logger logger = LoggerFactory.getLogger(WeatherUndergroundPlugin.class);
 
-    private static final long VAR_EXPIRE_TIME_MS = 60000;
+    private static final long VAR_EXPIRE_TIME_MS = 600000;
 
     private DeviceContext deviceContext;
     private String pwsId;
@@ -134,7 +134,7 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
                             logger.error("Error creating update URL", e);
                         }
                     } else {
-                        logger.debug("No variables available; bypassing update");
+                        logger.debug("No variable updates available; bypassing update");
                     }
                 } catch (UnsupportedEncodingException uee) {
                     logger.error("Unable to create wunderground URL", uee);
