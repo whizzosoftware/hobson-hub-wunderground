@@ -130,4 +130,38 @@ public class WeatherUndergroundPluginTest {
         v = new MutableHobsonVariable(DeviceContext.createLocal("plugin", "device1"), "foo", HobsonVariable.Mask.READ_ONLY, 32, null);
         assertFalse(plugin.appendVariableToURL(v, url, now + 3));
     }
+
+    @Test
+    public void testExpiredVariableUpdate() throws Exception {
+        long now = System.currentTimeMillis();
+        MockHttpChannel channel = new MockHttpChannel();
+
+        DeviceContext dctx = DeviceContext.createLocal("plugin", "device1");
+
+        MockVariableManager variableManager = new MockVariableManager();
+        variableManager.publishDeviceVariable(dctx, VariableConstants.OUTDOOR_TEMP_F, 41.2, HobsonVariable.Mask.READ_ONLY);
+
+        WeatherUndergroundPlugin plugin = new WeatherUndergroundPlugin("plugin", channel);
+        plugin.setVariableManager(variableManager);
+        plugin.setDeviceContext(dctx);
+        plugin.setPwsId("foo");
+        plugin.setPwsPassword("bar");
+
+        plugin.onRefresh(now);
+
+        assertEquals(1, channel.getURICount());
+        assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&tempf=41.2", channel.getURI(0).toASCIIString());
+        assertTrue(plugin.hasPendingRequest());
+        plugin.onHttpResponse(200, null, "success", null);
+        assertFalse(plugin.hasPendingRequest());
+
+        plugin.onRefresh(now + 70000);
+        assertEquals(1, channel.getURICount());
+
+        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(dctx, VariableConstants.OUTDOOR_TEMP_F)).setValue(42);
+        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(dctx, VariableConstants.OUTDOOR_TEMP_F)).setLastUpdate(now+70000);
+        plugin.onRefresh(now + 80000);
+        assertEquals(2, channel.getURICount());
+        assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&tempf=42", channel.getURI(1).toASCIIString());
+    }
 }

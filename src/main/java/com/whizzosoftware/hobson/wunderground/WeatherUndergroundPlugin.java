@@ -35,6 +35,8 @@ import java.util.Map;
 public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implements HttpChannel {
     private static final Logger logger = LoggerFactory.getLogger(WeatherUndergroundPlugin.class);
 
+    private static final long VAR_EXPIRE_TIME_MS = 60000;
+
     private DeviceContext deviceContext;
     private String pwsId;
     private String pwsPassword;
@@ -188,7 +190,7 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
     }
 
     protected boolean appendVariableToURL(HobsonVariable v, StringBuilder url, long now) throws UnsupportedEncodingException {
-        if (v != null && v.getName() != null && v.getValue() != null) {
+        if (v != null && v.getName() != null && v.getValue() != null && !isVariableStale(v, now)) {
             if ((!lastVariableUpdate.containsKey(v.getName()) || now > lastVariableUpdate.get(v.getName()))) {
                 String queryParam = getQueryParameterForVariable(v.getName());
                 if (queryParam != null) {
@@ -234,5 +236,9 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
 
     protected void clearPendingRequest() {
         pendingRequest = false;
+    }
+
+    protected boolean isVariableStale(HobsonVariable v, long now) {
+        return (v.getLastUpdate() != null && now - v.getLastUpdate() >= VAR_EXPIRE_TIME_MS);
     }
 }
