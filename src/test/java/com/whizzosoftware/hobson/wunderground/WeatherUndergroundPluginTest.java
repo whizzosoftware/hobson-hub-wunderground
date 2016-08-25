@@ -152,7 +152,7 @@ public class WeatherUndergroundPluginTest {
         assertEquals(1, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&tempf=41.2", channel.getURI(0).toASCIIString());
         assertTrue(plugin.hasPendingRequest());
-        plugin.onHttpResponse(200, null, "success", null);
+        plugin.onHttpResponse(new MockHttpResponse(200, "success"), null);
         assertFalse(plugin.hasPendingRequest());
 
         plugin.onRefresh(now + 601000);

@@ -7,6 +7,8 @@
  *******************************************************************************/
 package com.whizzosoftware.hobson.wunderground;
 
+import com.whizzosoftware.hobson.api.plugin.http.HttpRequest;
+
 import java.net.URI;
 import java.util.Map;
 
@@ -16,5 +18,5 @@ import java.util.Map;
  * @author Dan Noguerol
  */
 public interface HttpChannel {
-    public void sendHttpGetRequest(URI uri, Map<String,String> headers, final Object context);
+    void sendHttpRequest(URI uri, HttpRequest.Method method, Map<String, String> headers, Object context);
 }

@@ -7,6 +7,8 @@
  *******************************************************************************/
 package com.whizzosoftware.hobson.wunderground;
 
+import com.whizzosoftware.hobson.api.plugin.http.HttpRequest;
+
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,7 +18,7 @@ public class MockHttpChannel implements HttpChannel {
     private List<URI> uriList = new ArrayList<>();
 
     @Override
-    public void sendHttpGetRequest(URI uri, Map<String, String> headers, Object context) {
+    public void sendHttpRequest(URI uri, HttpRequest.Method method, Map<String, String> headers, Object context) {
         uriList.add(uri);
     }
 

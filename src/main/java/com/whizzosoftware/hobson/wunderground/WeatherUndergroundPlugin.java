@@ -11,6 +11,8 @@ import com.whizzosoftware.hobson.api.device.DeviceContext;
 import com.whizzosoftware.hobson.api.device.DeviceType;
 import com.whizzosoftware.hobson.api.plugin.PluginStatus;
 import com.whizzosoftware.hobson.api.plugin.http.AbstractHttpClientPlugin;
+import com.whizzosoftware.hobson.api.plugin.http.HttpRequest;
+import com.whizzosoftware.hobson.api.plugin.http.HttpResponse;
 import com.whizzosoftware.hobson.api.property.PropertyConstraintType;
 import com.whizzosoftware.hobson.api.property.PropertyContainer;
 import com.whizzosoftware.hobson.api.property.TypedProperty;
@@ -19,6 +21,7 @@ import com.whizzosoftware.hobson.api.variable.VariableConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -128,7 +131,7 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
                     if (hasVariables) {
                         logger.debug("Calling update URL: {}", url.toString());
                         try {
-                            httpChannel.sendHttpGetRequest(new URI(url.toString()), null, null);
+                            httpChannel.sendHttpRequest(new URI(url.toString()), HttpRequest.Method.GET, null, null);
                             pendingRequest = true;
                         } catch (URISyntaxException e) {
                             logger.error("Error creating update URL", e);
@@ -146,17 +149,22 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
     }
 
     @Override
-    protected void onHttpResponse(int statusCode, List<Map.Entry<String, String>> headers, String response, Object context) {
+    public void onHttpResponse(HttpResponse response, Object context) {
         clearPendingRequest();
-        if (statusCode == 200 && response != null && response.startsWith("success")) {
-            logger.debug("Update successful");
-        } else {
-            logger.error("Failed to send update ({}): {}", statusCode, response);
+        try {
+            String s = response.getBody();
+            if (response.getStatusCode() == 200 && s != null && s.startsWith("success")) {
+                logger.debug("Update successful");
+            } else {
+                logger.error("Failed to send update ({}): {}", response.getStatusCode(), response);
+            }
+        } catch (IOException e) {
+            logger.error("Error processing HTTP response", e);
         }
     }
 
     @Override
-    protected void onHttpRequestFailure(Throwable cause, Object context) {
+    public void onHttpRequestFailure(Throwable cause, Object context) {
         clearPendingRequest();
         logger.error("Error calling update URL", cause);
     }
