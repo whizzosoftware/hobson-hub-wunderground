@@ -1,36 +1,59 @@
-/*******************************************************************************
+/*
+ *******************************************************************************
  * Copyright (c) 2015 Whizzo Software, LLC.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- *******************************************************************************/
+ *******************************************************************************
+*/
 package com.whizzosoftware.hobson.wunderground;
 
-import com.whizzosoftware.hobson.api.device.DeviceContext;
+import com.whizzosoftware.hobson.api.device.DeviceType;
+import com.whizzosoftware.hobson.api.device.MockDeviceManager;
+import com.whizzosoftware.hobson.api.device.MockDeviceProxy;
+import com.whizzosoftware.hobson.api.event.MockEventManager;
+import com.whizzosoftware.hobson.api.plugin.MockHobsonPlugin;
 import com.whizzosoftware.hobson.api.variable.*;
+import org.junit.Before;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class WeatherUndergroundPluginTest {
+    private MockHttpChannel channel;
+    private MockDeviceProxy wsDevice;
+    private WeatherUndergroundPlugin plugin;
+
+    @Before
+    public void setUp() {
+        MockDeviceManager dm = new MockDeviceManager();
+        MockEventManager em = new MockEventManager();
+        channel = new MockHttpChannel();
+
+        // create weather station plugin / device
+        MockHobsonPlugin wsPlugin = new MockHobsonPlugin("plugin1", "1.0", "Weather Station Plugin");
+        wsPlugin.setDeviceManager(dm);
+        wsPlugin.setEventManager(em);
+        wsDevice = new MockDeviceProxy(wsPlugin, "device1", DeviceType.WEATHER_STATION);
+        dm.publishDevice(wsDevice, null, null);
+
+        // create weather underground plugin
+        plugin = new WeatherUndergroundPlugin("plugin2", null, null, channel);
+        plugin.setDeviceManager(dm);
+        plugin.setEventManager(em);
+        plugin.setDeviceContext(wsDevice.getContext());
+    }
+
     @Test
     public void testURLUpdate() {
         long now = System.currentTimeMillis();
-
-        DeviceContext deviceContext = DeviceContext.createLocal("plugin1", "device1");
-        MockHttpChannel channel = new MockHttpChannel();
-        MockVariableManager variableManager = new MockVariableManager();
-
-        WeatherUndergroundPlugin plugin = new WeatherUndergroundPlugin("plugin2", channel);
-        plugin.setVariableManager(variableManager);
-        plugin.setDeviceContext(deviceContext);
 
         // refresh with no variables
         plugin.onRefresh(now);
         assertEquals(0, channel.getURICount());
 
         // add a temperature variable but there's no pws ID or password
-        variableManager.publishVariable(VariableContext.create(deviceContext, VariableConstants.OUTDOOR_TEMP_F), 72.5, HobsonVariable.Mask.READ_ONLY, now + 50);
+        wsDevice.publishVariables(new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.OUTDOOR_TEMP_F), VariableMask.READ_ONLY, 72.5, now + 50));
 
         // refresh
         plugin.onRefresh(now + 100);
@@ -56,25 +79,25 @@ public class WeatherUndergroundPluginTest {
         assertEquals(0, channel.getURICount());
 
         // update the variable but nothing should be sent because of previous pending request
-        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(73.5);
+        wsDevice.setVariableValue(VariableConstants.OUTDOOR_TEMP_F, 73.5, now + 450);
         plugin.onRefresh(now + 500);
         assertEquals(0, channel.getURICount());
 
         // clear pending request and update variable again
         plugin.clearPendingRequest();
         assertFalse(plugin.hasPendingRequest());
-        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(74.5);
+        wsDevice.setVariableValue(VariableConstants.OUTDOOR_TEMP_F, 74.5, now + 550);
         plugin.onRefresh(now + 600);
         assertEquals(1, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&tempf=74.5", channel.getURI(0).toASCIIString());
 
         // add a second variable
-        variableManager.publishVariable(VariableContext.create(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG), 5, HobsonVariable.Mask.READ_ONLY, now + 650);
+        wsDevice.publishVariables(new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.BAROMETRIC_PRESSURE_INHG), VariableMask.READ_ONLY, 5, now + 650));
         plugin.clearPendingRequest();
         assertFalse(plugin.hasPendingRequest());
         channel.clear();
         assertEquals(0, channel.getURICount());
-        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)).setValue(74.5);
+        wsDevice.setVariableValue(VariableConstants.OUTDOOR_TEMP_F, 74.5, now + 650);
         plugin.onRefresh(now + 700);
         assertEquals(1, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&baromin=5&tempf=74.5", channel.getURI(0).toASCIIString());
@@ -84,22 +107,17 @@ public class WeatherUndergroundPluginTest {
     public void testFullVariableUpdate() {
         long now = System.currentTimeMillis();
 
-        DeviceContext deviceContext = DeviceContext.createLocal("plugin1", "device1");
-        MockHttpChannel channel = new MockHttpChannel();
-        MockVariableManager variableManager = new MockVariableManager();
-
-        WeatherUndergroundPlugin plugin = new WeatherUndergroundPlugin("plugin2", channel);
-        plugin.setVariableManager(variableManager);
-        plugin.setDeviceContext(deviceContext);
         plugin.setPwsId("foo");
         plugin.setPwsPassword("bar");
 
-        variableManager.publishVariable(VariableContext.create(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG), 5, HobsonVariable.Mask.READ_ONLY, now);
-        variableManager.publishVariable(VariableContext.create(deviceContext, VariableConstants.DEW_PT_F), 6, HobsonVariable.Mask.READ_ONLY, now);
-        variableManager.publishVariable(VariableContext.create(deviceContext, VariableConstants.OUTDOOR_TEMP_F), 7, HobsonVariable.Mask.READ_ONLY, now);
-        variableManager.publishVariable(VariableContext.create(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY), 8, HobsonVariable.Mask.READ_ONLY, now);
-        variableManager.publishVariable(VariableContext.create(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES), 9, HobsonVariable.Mask.READ_ONLY, now);
-        variableManager.publishVariable(VariableContext.create(deviceContext, VariableConstants.WIND_SPEED_MPH), 10, HobsonVariable.Mask.READ_ONLY, now);
+        wsDevice.publishVariables(
+            new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.BAROMETRIC_PRESSURE_INHG), VariableMask.READ_ONLY, 5, now),
+            new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.DEW_PT_F), VariableMask.READ_ONLY, 6, now),
+            new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.OUTDOOR_TEMP_F), VariableMask.READ_ONLY, 7, now),
+            new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.OUTDOOR_RELATIVE_HUMIDITY), VariableMask.READ_ONLY, 8, now),
+            new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.WIND_DIRECTION_DEGREES), VariableMask.READ_ONLY, 9, now),
+            new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.WIND_SPEED_MPH), VariableMask.READ_ONLY, 10, now)
+        );
 
         plugin.onRefresh(now);
 
@@ -110,40 +128,31 @@ public class WeatherUndergroundPluginTest {
 
     @Test
     public void testAppendVariableToURL() throws Exception {
-        WeatherUndergroundPlugin plugin = new WeatherUndergroundPlugin("plugin");
-        MutableHobsonVariable v = new MutableHobsonVariable(VariableContext.createLocal("plugin", "device1", VariableConstants.OUTDOOR_TEMP_F), HobsonVariable.Mask.READ_ONLY, null, null, null);
+        long now = System.currentTimeMillis();
         StringBuilder url = new StringBuilder();
 
-        assertNull(v.getLastUpdate());
+        // test invalid variable name
+        wsDevice.publishVariables(new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), "foo"), VariableMask.READ_ONLY, 32, null));
+        assertFalse(plugin.appendVariableToURL(wsDevice.getVariableState("foo"), url, now + 3));
 
-        long now = System.currentTimeMillis();
+        // test valid variable name with no value
+        wsDevice.publishVariables(new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.OUTDOOR_TEMP_F), VariableMask.READ_ONLY, null, null));
+        assertNull(wsDevice.getVariableState(VariableConstants.OUTDOOR_TEMP_F).getLastUpdate());
+        assertFalse(plugin.appendVariableToURL(wsDevice.getVariableState(VariableConstants.OUTDOOR_TEMP_F), url, now));
 
-        // test null value
-        assertFalse(plugin.appendVariableToURL(v, url, now));
-
-        // test valid value
-        v.setValue("32");
-        assertTrue(plugin.appendVariableToURL(v, url, now + 2));
+        // test valid variable name with value
+        wsDevice.setVariableValue(VariableConstants.OUTDOOR_TEMP_F, 32, now + 1);
+        assertTrue(plugin.appendVariableToURL(wsDevice.getVariableState(VariableConstants.OUTDOOR_TEMP_F), url, now + 2));
         assertEquals("&tempf=32", url.toString());
 
-        // test invalid variable name
-        v = new MutableHobsonVariable(VariableContext.createLocal("plugin", "device1", "foo"), HobsonVariable.Mask.READ_ONLY, 32, null, null);
-        assertFalse(plugin.appendVariableToURL(v, url, now + 3));
     }
 
     @Test
     public void testExpiredVariableUpdate() throws Exception {
         long now = System.currentTimeMillis();
-        MockHttpChannel channel = new MockHttpChannel();
 
-        DeviceContext dctx = DeviceContext.createLocal("plugin", "device1");
+        wsDevice.publishVariables(new DeviceProxyVariable(DeviceVariableContext.create(wsDevice.getContext(), VariableConstants.OUTDOOR_TEMP_F), VariableMask.READ_ONLY, 41.2, now));
 
-        MockVariableManager variableManager = new MockVariableManager();
-        variableManager.publishVariable(VariableContext.create(dctx, VariableConstants.OUTDOOR_TEMP_F), 41.2, HobsonVariable.Mask.READ_ONLY, now);
-
-        WeatherUndergroundPlugin plugin = new WeatherUndergroundPlugin("plugin", channel);
-        plugin.setVariableManager(variableManager);
-        plugin.setDeviceContext(dctx);
         plugin.setPwsId("foo");
         plugin.setPwsPassword("bar");
 
@@ -158,8 +167,7 @@ public class WeatherUndergroundPluginTest {
         plugin.onRefresh(now + 601000);
         assertEquals(1, channel.getURICount());
 
-        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(dctx, VariableConstants.OUTDOOR_TEMP_F)).setValue(42);
-        ((MutableHobsonVariable)variableManager.getPublishedDeviceVariable(dctx, VariableConstants.OUTDOOR_TEMP_F)).setLastUpdate(now+70000);
+        wsDevice.setVariableValue(VariableConstants.OUTDOOR_TEMP_F, 42, now + 70000);
         plugin.onRefresh(now + 602000);
         assertEquals(2, channel.getURICount());
         assertEquals("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?ID=foo&PASSWORD=bar&dateutc=now&tempf=42", channel.getURI(1).toASCIIString());

@@ -1,14 +1,19 @@
-/*******************************************************************************
+/*
+ *******************************************************************************
  * Copyright (c) 2015 Whizzo Software, LLC.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- *******************************************************************************/
+ *******************************************************************************
+*/
 package com.whizzosoftware.hobson.wunderground;
 
+import com.whizzosoftware.hobson.api.HobsonNotFoundException;
 import com.whizzosoftware.hobson.api.device.DeviceContext;
 import com.whizzosoftware.hobson.api.device.DeviceType;
+import com.whizzosoftware.hobson.api.event.EventHandler;
+import com.whizzosoftware.hobson.api.event.plugin.PluginConfigurationUpdateEvent;
 import com.whizzosoftware.hobson.api.plugin.PluginStatus;
 import com.whizzosoftware.hobson.api.plugin.http.AbstractHttpClientPlugin;
 import com.whizzosoftware.hobson.api.plugin.http.HttpRequest;
@@ -16,7 +21,8 @@ import com.whizzosoftware.hobson.api.plugin.http.HttpResponse;
 import com.whizzosoftware.hobson.api.property.PropertyConstraintType;
 import com.whizzosoftware.hobson.api.property.PropertyContainer;
 import com.whizzosoftware.hobson.api.property.TypedProperty;
-import com.whizzosoftware.hobson.api.variable.HobsonVariable;
+import com.whizzosoftware.hobson.api.variable.DeviceVariableContext;
+import com.whizzosoftware.hobson.api.variable.DeviceVariableState;
 import com.whizzosoftware.hobson.api.variable.VariableConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +33,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -47,18 +52,18 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
     private Map<String,Long> lastVariableUpdate = new HashMap<>();
     private boolean pendingRequest;
 
-    public WeatherUndergroundPlugin(String pluginId) {
-        super(pluginId);
+    public WeatherUndergroundPlugin(String pluginId, String version, String description) {
+        super(pluginId, version, description);
         this.httpChannel = this;
     }
 
-    public WeatherUndergroundPlugin(String pluginId, HttpChannel httpChannel) {
-        super(pluginId);
+    public WeatherUndergroundPlugin(String pluginId, String version, String description, HttpChannel httpChannel) {
+        super(pluginId, version, description);
         this.httpChannel = httpChannel;
     }
 
     @Override
-    protected TypedProperty[] createSupportedProperties() {
+    protected TypedProperty[] getConfigurationPropertyTypes() {
         return new TypedProperty[] {
             new TypedProperty.Builder("device", "Device", "The device reporting the weather data", TypedProperty.Type.DEVICE).constraint(PropertyConstraintType.required, true).constraint(PropertyConstraintType.deviceType, DeviceType.WEATHER_STATION.toString()).build(),
             new TypedProperty.Builder("pwsId", "PWS ID", "The Personal Weather Station ID", TypedProperty.Type.STRING).constraint(PropertyConstraintType.required, true).build(),
@@ -85,9 +90,9 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
     public void onShutdown() {
     }
 
-    @Override
-    public void onPluginConfigurationUpdate(PropertyContainer config) {
-        processConfig(config);
+    @EventHandler
+    public void onPluginConfigurationUpdate(PluginConfigurationUpdateEvent event) {
+        processConfig(event.getConfiguration());
     }
 
     @Override
@@ -95,7 +100,7 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
         onRefresh(System.currentTimeMillis());
     }
 
-    protected void onRefresh(long now) {
+    void onRefresh(long now) {
         if (!pendingRequest) {
             if (deviceContext != null && pwsId != null && pwsPassword != null) {
                 try {
@@ -104,28 +109,29 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
 
                     boolean hasVariables = false;
 
-                    if (hasDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG), url, now);
+                    DeviceVariableContext dvctx = DeviceVariableContext.create(deviceContext, VariableConstants.BAROMETRIC_PRESSURE_INHG);
+                    if (hasDeviceVariableState(dvctx)) {
+                        hasVariables = appendVariableToURL(getDeviceVariableState(dvctx), url, now);
                     }
-
-                    if (hasDeviceVariable(deviceContext, VariableConstants.DEW_PT_F)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.DEW_PT_F), url, now) || hasVariables;
+                    dvctx = DeviceVariableContext.create(deviceContext, VariableConstants.DEW_PT_F);
+                    if (hasDeviceVariableState(dvctx)) {
+                        hasVariables = appendVariableToURL(getDeviceVariableState(dvctx), url, now) || hasVariables;
                     }
-
-                    if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_TEMP_F), url, now) || hasVariables;
+                    dvctx = DeviceVariableContext.create(deviceContext, VariableConstants.OUTDOOR_TEMP_F);
+                    if (hasDeviceVariableState(dvctx)) {
+                        hasVariables = appendVariableToURL(getDeviceVariableState(dvctx), url, now) || hasVariables;
                     }
-
-                    if (hasDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY), url, now) || hasVariables;
+                    dvctx = DeviceVariableContext.create(deviceContext, VariableConstants.OUTDOOR_RELATIVE_HUMIDITY);
+                    if (hasDeviceVariableState(dvctx)) {
+                        hasVariables = appendVariableToURL(getDeviceVariableState(dvctx), url, now) || hasVariables;
                     }
-
-                    if (hasDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES), url, now) || hasVariables;
+                    dvctx = DeviceVariableContext.create(deviceContext, VariableConstants.WIND_DIRECTION_DEGREES);
+                    if (hasDeviceVariableState(dvctx)) {
+                        hasVariables = appendVariableToURL(getDeviceVariableState(dvctx), url, now) || hasVariables;
                     }
-
-                    if (hasDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH)) {
-                        hasVariables = appendVariableToURL(getDeviceVariable(deviceContext, VariableConstants.WIND_SPEED_MPH), url, now) || hasVariables;
+                    dvctx = DeviceVariableContext.create(deviceContext, VariableConstants.WIND_SPEED_MPH);
+                    if (hasDeviceVariableState(dvctx)) {
+                        hasVariables = appendVariableToURL(getDeviceVariableState(dvctx), url, now) || hasVariables;
                     }
 
                     if (hasVariables) {
@@ -140,11 +146,13 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
                         logger.debug("No variable updates available; bypassing update");
                     }
                 } catch (UnsupportedEncodingException uee) {
-                    logger.error("Unable to create wunderground URL", uee);
+                    logger.error("Unable to create Weather Underground URL", uee);
+                } catch (HobsonNotFoundException nfe) {
+                    logger.warn("Unable to locate weather station device: {}; not sending any data this interval. The weather station plugin may still be starting up. If this condition persists there is a problem.", deviceContext);
                 }
             }
         } else {
-            logger.debug("A previous request is pending; bypassing update");
+            logger.debug("A previous request is still pending; bypassing update");
         }
     }
 
@@ -169,26 +177,46 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
         logger.error("Error calling update URL", cause);
     }
 
-    protected void setPwsId(String pwsId) {
+    void setPwsId(String pwsId) {
         this.pwsId = pwsId;
     }
 
-    protected void setPwsPassword(String pwsPassword) {
+    void setPwsPassword(String pwsPassword) {
         this.pwsPassword = pwsPassword;
     }
 
-    protected DeviceContext getDeviceContext() {
-        return deviceContext;
-    }
-
-    protected void setDeviceContext(DeviceContext deviceContext) {
+    void setDeviceContext(DeviceContext deviceContext) {
         this.deviceContext = deviceContext;
     }
 
-    protected void processConfig(PropertyContainer config) {
+    boolean hasPendingRequest() {
+        return pendingRequest;
+    }
+
+    void clearPendingRequest() {
+        pendingRequest = false;
+    }
+
+    boolean appendVariableToURL(DeviceVariableState v, StringBuilder url, long now) throws UnsupportedEncodingException {
+        if (v != null && v.getContext().getName() != null && v.getValue() != null && !isVariableStale(v, now)) {
+            if ((!lastVariableUpdate.containsKey(v.getContext().getName()) || now > lastVariableUpdate.get(v.getContext().getName()))) {
+                String queryParam = getQueryParameterForVariable(v.getContext().getName());
+                if (queryParam != null) {
+                    url.append("&").append(queryParam).append("=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
+                    setLastVariableUpdate(v.getContext().getName(), v.getLastUpdate());
+                    return true;
+                }
+            } else {
+                logger.error("Detected stale variable: {}", v.getContext().getName());
+            }
+        }
+        return false;
+    }
+
+    private void processConfig(PropertyContainer config) {
         setDeviceContext((DeviceContext)config.getPropertyValue("device"));
-        pwsId = (String)config.getPropertyValue("pwsId");
-        pwsPassword = (String)config.getPropertyValue("pwsPassword");
+        setPwsId((String)config.getPropertyValue("pwsId"));
+        setPwsPassword((String)config.getPropertyValue("pwsPassword"));
 
         if (deviceContext != null && pwsId != null && pwsId.trim().length() > 0 && pwsPassword != null && pwsPassword.trim().length() > 0) {
             setStatus(PluginStatus.running());
@@ -197,23 +225,7 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
         }
     }
 
-    protected boolean appendVariableToURL(HobsonVariable v, StringBuilder url, long now) throws UnsupportedEncodingException {
-        if (v != null && v.getName() != null && v.getValue() != null && !isVariableStale(v, now)) {
-            if ((!lastVariableUpdate.containsKey(v.getName()) || now > lastVariableUpdate.get(v.getName()))) {
-                String queryParam = getQueryParameterForVariable(v.getName());
-                if (queryParam != null) {
-                    url.append("&").append(queryParam).append("=").append(URLEncoder.encode(v.getValue().toString(), "UTF8"));
-                    setLastVariableUpdate(v.getName(), v.getLastUpdate());
-                    return true;
-                }
-            } else {
-                logger.error("Detected stale variable: {}", v.getName());
-            }
-        }
-        return false;
-    }
-
-    protected String getQueryParameterForVariable(String varName) {
+    private String getQueryParameterForVariable(String varName) {
         switch (varName) {
             case VariableConstants.BAROMETRIC_PRESSURE_INHG:
                 return "baromin";
@@ -232,21 +244,13 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
         }
     }
 
-    protected void setLastVariableUpdate(String varName, Long time) {
+    private void setLastVariableUpdate(String varName, Long time) {
         if (time != null) {
             lastVariableUpdate.put(varName, time);
         }
     }
 
-    protected boolean hasPendingRequest() {
-        return pendingRequest;
-    }
-
-    protected void clearPendingRequest() {
-        pendingRequest = false;
-    }
-
-    protected boolean isVariableStale(HobsonVariable v, long now) {
+    private boolean isVariableStale(DeviceVariableState v, long now) {
         return (v.getLastUpdate() != null && now - v.getLastUpdate() >= VAR_EXPIRE_TIME_MS);
     }
 }
