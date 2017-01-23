@@ -12,8 +12,6 @@ package com.whizzosoftware.hobson.wunderground;
 import com.whizzosoftware.hobson.api.HobsonNotFoundException;
 import com.whizzosoftware.hobson.api.device.DeviceContext;
 import com.whizzosoftware.hobson.api.device.DeviceType;
-import com.whizzosoftware.hobson.api.event.EventHandler;
-import com.whizzosoftware.hobson.api.event.plugin.PluginConfigurationUpdateEvent;
 import com.whizzosoftware.hobson.api.plugin.PluginStatus;
 import com.whizzosoftware.hobson.api.plugin.http.AbstractHttpClientPlugin;
 import com.whizzosoftware.hobson.api.plugin.http.HttpRequest;
@@ -90,9 +88,9 @@ public class WeatherUndergroundPlugin extends AbstractHttpClientPlugin implement
     public void onShutdown() {
     }
 
-    @EventHandler
-    public void onPluginConfigurationUpdate(PluginConfigurationUpdateEvent event) {
-        processConfig(event.getConfiguration());
+    @Override
+    public void onPluginConfigurationUpdate(PropertyContainer config) {
+        processConfig(config);
     }
 
     @Override
