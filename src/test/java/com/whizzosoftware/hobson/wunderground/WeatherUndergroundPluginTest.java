@@ -14,6 +14,7 @@ import com.whizzosoftware.hobson.api.device.MockDeviceManager;
 import com.whizzosoftware.hobson.api.device.MockDeviceProxy;
 import com.whizzosoftware.hobson.api.event.MockEventManager;
 import com.whizzosoftware.hobson.api.plugin.MockHobsonPlugin;
+import com.whizzosoftware.hobson.api.plugin.http.MockHttpResponse;
 import com.whizzosoftware.hobson.api.variable.*;
 import org.junit.Before;
 import org.junit.Test;
